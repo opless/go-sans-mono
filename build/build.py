@@ -6,6 +6,7 @@ import fontforge
 import psMat
 
 src, mono_src, out, style = sys.argv[1:5]
+VERSION = "1.000"    # the font version; keep in step with Version in gosansmono.go
 TARGET = 1229        # Go Mono's advance width, so the metrics match Go Mono
 MIN_SB = 70          # smallest side bearing for a condensed glyph
 # Narrow letters that look lost when merely centred: monospaced sans fonts
@@ -56,15 +57,18 @@ for g in list(f.glyphs()):
     g.transform(psMat.translate((TARGET - bw) / 2 - xmin, 0))
     g.width = TARGET
 
-fam = "Go Sans Mono"   # working name only (TREE-1391)
+fam = "Go Sans Mono"
 f.familyname = fam
 f.fontname = "GoSansMono-" + style
 f.fullname = fam + " " + style
+f.version = VERSION
+f.sfntRevision = float(VERSION)
 f.copyright = (f.copyright or "") + " Derived for TreeMendous (TREE-1391): monospaced, from the Go fonts."
 f.os2_panose = (2, 11, 5, 9, 2, 2, 3, 2, 2, 4) if style == "Regular" else (2, 11, 8, 9, 2, 2, 3, 2, 2, 4)
 f.appendSFNTName("English (US)", "Family", fam)
 f.appendSFNTName("English (US)", "SubFamily", style)
 f.appendSFNTName("English (US)", "Fullname", fam + " " + style)
 f.appendSFNTName("English (US)", "PostScriptName", "GoSansMono-" + style)
+f.appendSFNTName("English (US)", "Version", "Version " + VERSION)
 f.generate(out, flags=("opentype",))
 print("wrote", out)

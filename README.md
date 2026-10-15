@@ -6,7 +6,8 @@ Sans Mono keeps the sans-serif Go design and puts it on Go Mono's grid.
 It is made for TreeMendous and TreeMendous - Terminal (TREE-1391), to
 replace JetBrains Mono, whose licence (OFL) is not MIT or BSD (TREE-1389).
 
-**Status: prototype v1.** Regular and Bold. No glyph has been touched by hand yet.
+**Version 1.0.0.** Regular and Bold, made entirely by the build script: no
+glyph has been touched by hand yet (see Known work).
 
 ## How it is made
 
@@ -41,6 +42,10 @@ The Makefile sets `SOURCE_DATE_EPOCH`, so the same sources give the same
 font files, byte for byte.
 
 ## Use from Go
+
+```
+go get github.com/opless/go-sans-mono@v1.0.0
+```
 
 ```go
 import "github.com/opless/go-sans-mono"
