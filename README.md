@@ -1,0 +1,71 @@
+# Go Sans Mono
+
+A monospaced sans-serif font made from the [Go fonts](https://go.dev/blog/go-fonts)
+by Bigelow & Holmes. Go Mono, the monospaced Go font, has slab serifs; Go
+Sans Mono keeps the sans-serif Go design and puts it on Go Mono's grid.
+It is made for TreeMendous and TreeMendous - Terminal (TREE-1391), to
+replace JetBrains Mono, whose licence (OFL) is not MIT or BSD (TREE-1389).
+
+**Status: prototype v1.** Regular and Bold. No glyph has been touched by hand yet.
+
+## How it is made
+
+`build/build.py` (a FontForge script) does this for Regular and Bold:
+
+1. Starts from Go Regular or Go Bold (`source/`, from `golang.org/x/image`
+   v0.46.0, see `source/SOURCE.md`).
+2. Takes these characters from Go Mono instead, because they are the same
+   design already drawn for a monospaced cell:
+   `i j l I 1 0` (feet and bars, and the slashed zero),
+   `← ↑ → ↓ ↔ ↕`, `…`, `–` and `—`.
+3. Condenses every glyph wider than the cell, keeping stem widths
+   (FontForge `condenseExtend`); if that cannot make it fit, scales it.
+4. Centres every glyph in a cell of 1229 units (2048 to the em), Go Mono's
+   advance width, so the metrics match Go Mono.
+5. Removes kerning, sets the fixed-pitch flags, and names the font.
+
+`build/check.py` then checks that every character is one cell wide (or zero,
+for a combining mark), stays inside its cell, and that the font says it is
+fixed pitch.
+
+## Build
+
+Needs FontForge (with Python) and fontTools. On a Mac:
+
+```
+brew install fontforge fonttools
+make            # builds fonts/ and runs the check
+```
+
+The Makefile sets `SOURCE_DATE_EPOCH`, so the same sources give the same
+font files, byte for byte.
+
+## Use from Go
+
+```go
+import "github.com/opless/go-sans-mono"
+
+face, err := opentype.Parse(gosansmono.Regular) // or gosansmono.Bold
+```
+
+`go test` checks that the embedded fonts parse and that the common
+characters are one cell wide.
+
+## Known work
+
+These glyphs need hand work, in both weights:
+
+- `m w M W` are condensed to about 65 % and look cramped, most of all in Bold.
+- `@ % &` are small. `Q`'s tail is long. `*` sits high.
+- There is no Medium weight.
+- Greek, Cyrillic and other non-Latin glyphs are condensed by the same
+  script and have not been checked by eye.
+- There is no hinting (the Go sources have none). macOS ignores hinting;
+  Windows may render the font softer.
+
+## Licence
+
+BSD-3-Clause. See `LICENSE`, which also carries the Bigelow & Holmes notice
+of the Go fonts, as their licence requires. The Go fonts' own licence text is
+in `source/README-gofont`. Go Sans Mono is not made or endorsed by Google or
+by Bigelow & Holmes.
