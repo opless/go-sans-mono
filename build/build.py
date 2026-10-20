@@ -6,7 +6,7 @@ import fontforge
 import psMat
 
 src, mono_src, out, style = sys.argv[1:5]
-VERSION = "1.000"    # the font version; keep in step with Version in gosansmono.go
+VERSION = "1.001"    # the font version; keep in step with Version in gosansmono.go
 TARGET = 1229        # Go Mono's advance width, so the metrics match Go Mono
 MIN_SB = 70          # smallest side bearing for a condensed glyph
 # Narrow letters that look lost when merely centred: monospaced sans fonts
@@ -65,10 +65,29 @@ f.version = VERSION
 f.sfntRevision = float(VERSION)
 f.copyright = (f.copyright or "") + " Derived for TreeMendous (TREE-1391): monospaced, from the Go fonts."
 f.os2_panose = (2, 11, 5, 9, 2, 2, 3, 2, 2, 4) if style == "Regular" else (2, 11, 8, 9, 2, 2, 3, 2, 2, 4)
-f.appendSFNTName("English (US)", "Family", fam)
-f.appendSFNTName("English (US)", "SubFamily", style)
-f.appendSFNTName("English (US)", "Fullname", fam + " " + style)
-f.appendSFNTName("English (US)", "PostScriptName", "GoSansMono-" + style)
-f.appendSFNTName("English (US)", "Version", "Version " + VERSION)
-f.generate(out, flags=("opentype",))
+# Replace the Go font's own names, not add to them: some FontForge versions
+# (Debian's 20230101) keep the source's Version, and every version kept its
+# UniqueID and Compatible Full ("Go Bold"), which can clash with an installed
+# Go font.
+names = {
+    "Family": fam,
+    "SubFamily": style,
+    "UniqueID": "GoSansMono-" + style + " " + VERSION,
+    "Fullname": fam + " " + style,
+    "PostScriptName": "GoSansMono-" + style,
+    "Version": "Version " + VERSION,
+    "Compatible Full": fam + " " + style,
+}
+f.sfnt_names = tuple(n for n in f.sfnt_names if n[1] not in names)
+for strid, value in names.items():
+    f.appendSFNTName("English (US)", strid, value)
+# The Go sources are hinted, but their instructions were written for the
+# outlines before they were moved and condensed (condensing can even drop
+# points), so Windows, which runs them, drew a deformed Bold "o" (TREE-1616).
+# Ship the font unhinted, as macOS draws it anyway.
+for g in f.glyphs():
+    g.ttinstrs = b""
+for tag in ("fpgm", "prep", "cvt "):
+    f.setTableData(tag, None)
+f.generate(out, flags=("opentype", "omit-instructions"))
 print("wrote", out)

@@ -16,8 +16,8 @@ var Regular []byte
 var Bold []byte
 
 // Version is the version of the fonts in this package (the fonts carry it as
-// 1.000 in their name and head tables).
-const Version = "1.0.0"
+// 1.001 in their name and head tables).
+const Version = "1.0.1"
 
 // Cell is the advance width of every glyph, in font units (2048 to the em),
 // the same as Go Mono's.

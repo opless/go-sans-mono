@@ -6,7 +6,7 @@ Sans Mono keeps the sans-serif Go design and puts it on Go Mono's grid.
 It is made for TreeMendous and TreeMendous - Terminal (TREE-1391), to
 replace JetBrains Mono, whose licence (OFL) is not MIT or BSD (TREE-1389).
 
-**Version 1.0.0.** Regular and Bold, made entirely by the build script: no
+**Version 1.0.1.** Regular and Bold, made entirely by the build script: no
 glyph has been touched by hand yet (see Known work).
 
 ## How it is made
@@ -23,11 +23,14 @@ glyph has been touched by hand yet (see Known work).
    (FontForge `condenseExtend`); if that cannot make it fit, scales it.
 4. Centres every glyph in a cell of 1229 units (2048 to the em), Go Mono's
    advance width, so the metrics match Go Mono.
-5. Removes kerning, sets the fixed-pitch flags, and names the font.
+5. Removes kerning and the TrueType hinting, sets the fixed-pitch flags, and
+   names the font. The Go sources are hinted, but their instructions fit the
+   outlines before steps 3 and 4 (condensing can even drop points), and
+   Windows, which runs them, drew a deformed Bold `o` (TREE-1616).
 
 `build/check.py` then checks that every character is one cell wide (or zero,
-for a combining mark), stays inside its cell, and that the font says it is
-fixed pitch.
+for a combining mark), stays inside its cell, that the font says it is
+fixed pitch, and that it carries no hinting.
 
 ## Build
 
@@ -44,7 +47,7 @@ font files, byte for byte.
 ## Use from Go
 
 ```
-go get github.com/opless/go-sans-mono@v1.0.0
+go get github.com/opless/go-sans-mono@v1.0.1
 ```
 
 ```go
@@ -65,8 +68,9 @@ These glyphs need hand work, in both weights:
 - There is no Medium weight.
 - Greek, Cyrillic and other non-Latin glyphs are condensed by the same
   script and have not been checked by eye.
-- There is no hinting (the Go sources have none). macOS ignores hinting;
-  Windows may render the font softer.
+- There is no hinting (the build drops the Go sources' hints, see step 5).
+  macOS ignores hinting; Windows may render the font softer. ttfautohint
+  could hint it again.
 
 ## Licence
 
