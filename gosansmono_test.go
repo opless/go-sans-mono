@@ -90,7 +90,8 @@ func TestNoHinting(t *testing.T) {
 // of its weight). It measures each stroke across, from where two horizontal
 // lines cut the outline, and compares it with the same stroke in the source.
 // Squeezed glyphs are meant to be a little lighter than the source, so that
-// they look as dark as the rest; @ % ¼ ¾ are left out (see build.py).
+// they look as dark as the rest; @ % ¼ ¾ are left out (see build.py), and
+// Q @ % & come from Go Mono (TestFromGoMono).
 func TestStrokeWeight(t *testing.T) {
 	for _, w := range []string{"Regular", "Bold"} {
 		src, err := os.ReadFile("source/Go-" + w + ".ttf")
@@ -98,7 +99,7 @@ func TestStrokeWeight(t *testing.T) {
 			t.Fatal(err)
 		}
 		out := map[string][]byte{"Regular": Regular, "Bold": Bold}[w]
-		for _, r := range "WwMmQYKVXŒœÆæØ&ΜΦΨΩωπЉљШЩщФф" {
+		for _, r := range "WwMmYKVXŒœÆæØΜΦΨΩωπЉљШЩщФф" {
 			a, b := strokes(t, src, r), strokes(t, out, r)
 			if len(a) == 0 || len(a) != len(b) {
 				continue // the strokes do not line up; nothing to compare
@@ -215,4 +216,78 @@ func strokes(t *testing.T, data []byte, r rune) []float64 {
 		th = append(th, ((ra[i][1]-ra[i][0])+(rb[i][1]-rb[i][0]))/2*sin)
 	}
 	return th
+}
+
+// TestFromGoMono checks that Q @ % & are Go Mono's glyphs as drawn, not
+// squeezed copies of Go's wider ones (TREE-1619). Bold % is fitted into the
+// cell, which moves its points by up to 2 units.
+func TestFromGoMono(t *testing.T) {
+	for w, out := range map[string][]byte{"Regular": Regular, "Bold": Bold} {
+		src, err := os.ReadFile(map[string]string{"Regular": "source/Go-Mono.ttf", "Bold": "source/Go-Mono-Bold.ttf"}[w])
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, r := range "Q@%&" {
+			a, b := outline(t, src, r), outline(t, out, r)
+			if len(a) != len(b) {
+				t.Errorf("%s %q: %d points, Go Mono has %d", w, r, len(b), len(a))
+				continue
+			}
+			for i := range a {
+				if d := a[i].Sub(b[i]); d.X > 2*64 || d.X < -2*64 || d.Y > 2*64 || d.Y < -2*64 {
+					t.Errorf("%s %q: point %d is %v, Go Mono has %v", w, r, i, b[i], a[i])
+					break
+				}
+			}
+		}
+	}
+}
+
+// TestAsterisk checks that * is centred on the middle of +, as an operator
+// in code, not raised like a footnote mark (TREE-1619).
+func TestAsterisk(t *testing.T) {
+	for w, data := range map[string][]byte{"Regular": Regular, "Bold": Bold} {
+		f, err := sfnt.Parse(data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var buf sfnt.Buffer
+		mid := func(r rune) fixed.Int26_6 {
+			g, err := f.GlyphIndex(&buf, r)
+			if err != nil {
+				t.Fatal(err)
+			}
+			b, _, err := f.GlyphBounds(&buf, g, fixed.I(int(f.UnitsPerEm())), 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return (b.Min.Y + b.Max.Y) / 2
+		}
+		if d := mid('*') - mid('+'); d > fixed.I(2) || d < -fixed.I(2) {
+			t.Errorf("%s: the middle of * is %v units from the middle of +", w, d)
+		}
+	}
+}
+
+// outline returns every point of a glyph's outline, in font units (26.6).
+func outline(t *testing.T, data []byte, r rune) []fixed.Point26_6 {
+	f, err := sfnt.Parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf sfnt.Buffer
+	g, err := f.GlyphIndex(&buf, r)
+	if err != nil || g == 0 {
+		t.Fatalf("no glyph for %q", r)
+	}
+	segs, err := f.LoadGlyph(&buf, g, fixed.I(int(f.UnitsPerEm())), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pts []fixed.Point26_6
+	for _, s := range segs {
+		n := map[sfnt.SegmentOp]int{sfnt.SegmentOpMoveTo: 1, sfnt.SegmentOpLineTo: 1, sfnt.SegmentOpQuadTo: 2, sfnt.SegmentOpCubeTo: 3}[s.Op]
+		pts = append(pts, s.Args[:n]...)
+	}
+	return pts
 }
