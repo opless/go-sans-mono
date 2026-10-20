@@ -1,0 +1,24 @@
+# The pinned build environment (TREE-1617). FontForge versions do not give
+# the same font files (Debian's 20230101 and Homebrew's 20251009 differ in a
+# few emboldened glyphs), so the committed fonts are built here, with "make
+# container". Everything is pinned: the image by digest, the packages by
+# version from a dated snapshot.debian.org archive, and the platform to
+# linux/amd64 (the Makefile passes --platform), because arm64 may round
+# floating point differently.
+FROM docker.io/library/debian:trixie@sha256:913f6706df59a68922d1dd08f78c2476560a8d367897200a6005b00e5f67c2d5
+
+RUN rm -f /etc/apt/sources.list.d/debian.sources \
+ && echo "deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/20261015T000000Z trixie main" > /etc/apt/sources.list \
+ && echo "deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/20261015T000000Z trixie-updates main" >> /etc/apt/sources.list \
+ && echo "deb [check-valid-until=no] http://snapshot.debian.org/archive/debian-security/20261015T000000Z trixie-security main" >> /etc/apt/sources.list \
+ && apt-get update -qq \
+ && apt-get install -y -qq --no-install-recommends \
+      fontforge=1:20230101~dfsg-4+b1 \
+      python3-fontforge=1:20230101~dfsg-4+b1 \
+      libfontforge4=1:20230101~dfsg-4+b1 \
+      fonttools=4.57.0-1+deb13u1 \
+      python3-fonttools=4.57.0-1+deb13u1 \
+      make=4.4.1-2 \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src

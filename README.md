@@ -38,15 +38,30 @@ fixed pitch, and that it carries no hinting.
 
 ## Build
 
-Needs FontForge (with Python) and fontTools. On a Mac:
+Build the fonts you commit in the pinned container. It needs podman or
+docker, nothing else:
+
+```
+make container  # builds fonts/ in build/Containerfile and runs the check
+```
+
+The container pins everything: the Debian image by digest, FontForge
+20230101 and fontTools 4.57.0 by version from a dated snapshot.debian.org
+archive, and the platform (linux/amd64, also on Apple Silicon). With the
+`SOURCE_DATE_EPOCH` the Makefile sets, it gives the committed font files,
+byte for byte.
+
+To build with your own tools instead, you need FontForge (with Python) and
+fontTools. On a Mac:
 
 ```
 brew install fontforge fonttools
 make            # builds fonts/ and runs the check
 ```
 
-The Makefile sets `SOURCE_DATE_EPOCH`, so the same sources give the same
-font files, byte for byte.
+Another FontForge version can give slightly different outlines for a few
+of the glyphs made heavier in step 3 (Homebrew's 20251009 changes 7 of
+them, TREE-1618), so the files are not byte for byte the same.
 
 ## Use from Go
 
