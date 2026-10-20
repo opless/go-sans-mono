@@ -6,12 +6,47 @@ import fontforge
 import psMat
 
 src, mono_src, out, style = sys.argv[1:5]
-VERSION = "1.000"    # the font version; keep in step with Version in gosansmono.go
+VERSION = "1.002"    # the font version; keep in step with Version in gosansmono.go
 TARGET = 1229        # Go Mono's advance width, so the metrics match Go Mono
 MIN_SB = 70          # smallest side bearing for a condensed glyph
 # Narrow letters that look lost when merely centred: monospaced sans fonts
 # give them feet or bars; Go Mono's are the same design, so take those.
 FROM_MONO = set(map(ord, "iljI10")) | set(map(ord, "\u2190\u2191\u2192\u2193\u2194\u2195\u2026\u2014\u2013"))
+
+# condenseExtend keeps only the vertical stems it finds; it squeezes
+# diagonals and curves like counters, so these glyphs came out up to half as
+# heavy as the Go sources (TREE-1617; found by measuring every glyph's
+# strokes against the source, as TestStrokeWeight does). They are made heavier
+# again in proportion to how much they were squeezed. Regular m keeps its
+# stems, and @ % ¼ ¾ go too heavy, so they are not on the lists.
+LIGHT = {
+    "Regular": set(map(ord, "WŴwŵMQ&ŒœÆæǼǽØǾYÝŶŸ"
+                            "ΜΦΨΩωώΌΎΏπ"
+                            "ЉљЊњЂЋМШЩщФф")),
+    "Bold": set(map(ord, "WŴwŵMmQ&ŒœÆæǼǽØǾYÝŶŸKĶVXOÒÓÔÕÖŌŎŐǑGĜĞĠĢÐĐďĲ"
+                         "ΜΦΨΩωώΌΎΏπΘΟΔΚΧχψσφ"
+                         "ЉљЊњЂЋМмШшЩщФфОДыъЎУХЮ")),
+}
+K = {"Regular": 0.4, "Bold": 0.4}
+STEM = {"Regular": 197, "Bold": 296}   # the stem of n in Go Regular and Go Bold
+# changeWeight needs cubic outlines, but converting the whole font changes
+# hundreds of glyphs on the way back to TrueType, so only these go through a
+# cubic scratch font.
+scratch = fontforge.font()
+scratch.is_quadratic = False
+
+
+def embolden(g, amount):
+    s = scratch.createChar(-1, "tmp")
+    s.clear()
+    s.foreground = g.foreground
+    s.width = g.width
+    # "squish" keeps the glyph as wide as it is; the strokes take the room.
+    s.changeWeight(amount, "auto", 0, 0, "squish")
+    s.removeOverlap()
+    g.foreground = s.foreground
+    g.round()
+
 
 f = fontforge.open(src)
 mono = fontforge.open(mono_src)
@@ -52,6 +87,9 @@ for g in list(f.glyphs()):
             xmin, ymin, xmax, ymax = g.boundingBox()
             g.transform(psMat.scale((TARGET - 2 * MIN_SB) / (xmax - xmin), 1))
         xmin, ymin, xmax, ymax = g.boundingBox()
+        if u in LIGHT[style]:
+            embolden(g, K[style] * (1 - (xmax - xmin) / bw) * STEM[style])
+            xmin, ymin, xmax, ymax = g.boundingBox()
         bw = xmax - xmin
     # Centre in the cell.
     g.transform(psMat.translate((TARGET - bw) / 2 - xmin, 0))
@@ -65,10 +103,29 @@ f.version = VERSION
 f.sfntRevision = float(VERSION)
 f.copyright = (f.copyright or "") + " Derived for TreeMendous (TREE-1391): monospaced, from the Go fonts."
 f.os2_panose = (2, 11, 5, 9, 2, 2, 3, 2, 2, 4) if style == "Regular" else (2, 11, 8, 9, 2, 2, 3, 2, 2, 4)
-f.appendSFNTName("English (US)", "Family", fam)
-f.appendSFNTName("English (US)", "SubFamily", style)
-f.appendSFNTName("English (US)", "Fullname", fam + " " + style)
-f.appendSFNTName("English (US)", "PostScriptName", "GoSansMono-" + style)
-f.appendSFNTName("English (US)", "Version", "Version " + VERSION)
-f.generate(out, flags=("opentype",))
+# Replace the Go font's own names, not add to them: some FontForge versions
+# (Debian's 20230101) keep the source's Version, and every version kept its
+# UniqueID and Compatible Full ("Go Bold"), which can clash with an installed
+# Go font.
+names = {
+    "Family": fam,
+    "SubFamily": style,
+    "UniqueID": "GoSansMono-" + style + " " + VERSION,
+    "Fullname": fam + " " + style,
+    "PostScriptName": "GoSansMono-" + style,
+    "Version": "Version " + VERSION,
+    "Compatible Full": fam + " " + style,
+}
+f.sfnt_names = tuple(n for n in f.sfnt_names if n[1] not in names)
+for strid, value in names.items():
+    f.appendSFNTName("English (US)", strid, value)
+# The Go sources are hinted, but their instructions were written for the
+# outlines before they were moved and condensed (condensing can even drop
+# points), so Windows, which runs them, drew a deformed Bold "o" (TREE-1616).
+# Ship the font unhinted, as macOS draws it anyway.
+for g in f.glyphs():
+    g.ttinstrs = b""
+for tag in ("fpgm", "prep", "cvt "):
+    f.setTableData(tag, None)
+f.generate(out, flags=("opentype", "omit-instructions"))
 print("wrote", out)

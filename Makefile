@@ -12,11 +12,13 @@ FONTS = fonts/GoSansMono-Regular.ttf fonts/GoSansMono-Bold.ttf
 .PHONY: all check clean
 all: $(FONTS) check
 
-fonts/GoSansMono-Regular.ttf: build/build.py source/Go-Regular.ttf source/Go-Mono.ttf
+fonts/GoSansMono-Regular.ttf: build/build.py build/fixed_pitch.py source/Go-Regular.ttf source/Go-Mono.ttf
 	$(FONTFORGE) -quiet -lang=py -script build/build.py source/Go-Regular.ttf source/Go-Mono.ttf $@ Regular
+	$(FONTTOOLS_PY) build/fixed_pitch.py $@
 
-fonts/GoSansMono-Bold.ttf: build/build.py source/Go-Bold.ttf source/Go-Mono-Bold.ttf
+fonts/GoSansMono-Bold.ttf: build/build.py build/fixed_pitch.py source/Go-Bold.ttf source/Go-Mono-Bold.ttf
 	$(FONTFORGE) -quiet -lang=py -script build/build.py source/Go-Bold.ttf source/Go-Mono-Bold.ttf $@ Bold
+	$(FONTTOOLS_PY) build/fixed_pitch.py $@
 
 check: $(FONTS)
 	$(FONTTOOLS_PY) build/check.py $(FONTS)
