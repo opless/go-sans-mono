@@ -6,7 +6,7 @@ Sans Mono keeps the sans-serif Go design and puts it on Go Mono's grid.
 It is made for TreeMendous and TreeMendous - Terminal (TREE-1391), to
 replace JetBrains Mono, whose licence (OFL) is not MIT or BSD (TREE-1389).
 
-**Version 1.0.1.** Regular and Bold, made entirely by the build script: no
+**Version 1.0.2.** Regular and Bold, made entirely by the build script: no
 glyph has been touched by hand yet (see Known work).
 
 ## How it is made
@@ -21,6 +21,10 @@ glyph has been touched by hand yet (see Known work).
    `← ↑ → ↓ ↔ ↕`, `…`, `–` and `—`.
 3. Condenses every glyph wider than the cell, keeping stem widths
    (FontForge `condenseExtend`); if that cannot make it fit, scales it.
+   `condenseExtend` keeps only vertical stems, so diagonals and curves get
+   thinner (`W` lost 40%). The glyphs listed in `LIGHT` are made heavier
+   again in proportion to the squeeze (TREE-1617). They stay a little
+   lighter than the Go fonts, so that a full cell looks as dark as the rest.
 4. Centres every glyph in a cell of 1229 units (2048 to the em), Go Mono's
    advance width, so the metrics match Go Mono.
 5. Removes kerning and the TrueType hinting, sets the fixed-pitch flags, and
@@ -47,7 +51,7 @@ font files, byte for byte.
 ## Use from Go
 
 ```
-go get github.com/opless/go-sans-mono@v1.0.1
+go get github.com/opless/go-sans-mono@v1.0.2
 ```
 
 ```go
@@ -56,14 +60,16 @@ import "github.com/opless/go-sans-mono"
 face, err := opentype.Parse(gosansmono.Regular) // or gosansmono.Bold
 ```
 
-`go test` checks that the embedded fonts parse and that the common
-characters are one cell wide.
+`go test` checks that the embedded fonts parse, that the common
+characters are one cell wide, that the fonts carry no hinting, and that
+squeezed glyphs keep enough of the Go fonts' stroke weight.
 
 ## Known work
 
 These glyphs need hand work, in both weights:
 
-- `m w M W` are condensed to about 65 % and look cramped, most of all in Bold.
+- `m w M W` are condensed to about 65 % and look cramped. Their weight is
+  restored by the build (TREE-1617), but their shapes are still squeezed.
 - `@ % &` are small. `Q`'s tail is long. `*` sits high.
 - There is no Medium weight.
 - Greek, Cyrillic and other non-Latin glyphs are condensed by the same

@@ -6,12 +6,47 @@ import fontforge
 import psMat
 
 src, mono_src, out, style = sys.argv[1:5]
-VERSION = "1.001"    # the font version; keep in step with Version in gosansmono.go
+VERSION = "1.002"    # the font version; keep in step with Version in gosansmono.go
 TARGET = 1229        # Go Mono's advance width, so the metrics match Go Mono
 MIN_SB = 70          # smallest side bearing for a condensed glyph
 # Narrow letters that look lost when merely centred: monospaced sans fonts
 # give them feet or bars; Go Mono's are the same design, so take those.
 FROM_MONO = set(map(ord, "iljI10")) | set(map(ord, "\u2190\u2191\u2192\u2193\u2194\u2195\u2026\u2014\u2013"))
+
+# condenseExtend keeps only the vertical stems it finds; it squeezes
+# diagonals and curves like counters, so these glyphs came out up to half as
+# heavy as the Go sources (TREE-1617; found by measuring every glyph's
+# strokes against the source, as TestStrokeWeight does). They are made heavier
+# again in proportion to how much they were squeezed. Regular m keeps its
+# stems, and @ % ¼ ¾ go too heavy, so they are not on the lists.
+LIGHT = {
+    "Regular": set(map(ord, "WŴwŵMQ&ŒœÆæǼǽØǾYÝŶŸ"
+                            "ΜΦΨΩωώΌΎΏπ"
+                            "ЉљЊњЂЋМШЩщФф")),
+    "Bold": set(map(ord, "WŴwŵMmQ&ŒœÆæǼǽØǾYÝŶŸKĶVXOÒÓÔÕÖŌŎŐǑGĜĞĠĢÐĐďĲ"
+                         "ΜΦΨΩωώΌΎΏπΘΟΔΚΧχψσφ"
+                         "ЉљЊњЂЋМмШшЩщФфОДыъЎУХЮ")),
+}
+K = {"Regular": 0.4, "Bold": 0.4}
+STEM = {"Regular": 197, "Bold": 296}   # the stem of n in Go Regular and Go Bold
+# changeWeight needs cubic outlines, but converting the whole font changes
+# hundreds of glyphs on the way back to TrueType, so only these go through a
+# cubic scratch font.
+scratch = fontforge.font()
+scratch.is_quadratic = False
+
+
+def embolden(g, amount):
+    s = scratch.createChar(-1, "tmp")
+    s.clear()
+    s.foreground = g.foreground
+    s.width = g.width
+    # "squish" keeps the glyph as wide as it is; the strokes take the room.
+    s.changeWeight(amount, "auto", 0, 0, "squish")
+    s.removeOverlap()
+    g.foreground = s.foreground
+    g.round()
+
 
 f = fontforge.open(src)
 mono = fontforge.open(mono_src)
@@ -52,6 +87,9 @@ for g in list(f.glyphs()):
             xmin, ymin, xmax, ymax = g.boundingBox()
             g.transform(psMat.scale((TARGET - 2 * MIN_SB) / (xmax - xmin), 1))
         xmin, ymin, xmax, ymax = g.boundingBox()
+        if u in LIGHT[style]:
+            embolden(g, K[style] * (1 - (xmax - xmin) / bw) * STEM[style])
+            xmin, ymin, xmax, ymax = g.boundingBox()
         bw = xmax - xmin
     # Centre in the cell.
     g.transform(psMat.translate((TARGET - bw) / 2 - xmin, 0))
