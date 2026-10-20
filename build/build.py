@@ -6,12 +6,16 @@ import fontforge
 import psMat
 
 src, mono_src, out, style = sys.argv[1:5]
-VERSION = "1.002"    # the font version; keep in step with Version in gosansmono.go
+VERSION = "1.003"    # the font version; keep in step with Version in gosansmono.go
 TARGET = 1229        # Go Mono's advance width, so the metrics match Go Mono
 MIN_SB = 70          # smallest side bearing for a condensed glyph
 # Narrow letters that look lost when merely centred: monospaced sans fonts
 # give them feet or bars; Go Mono's are the same design, so take those.
 FROM_MONO = set(map(ord, "iljI10")) | set(map(ord, "\u2190\u2191\u2192\u2193\u2194\u2195\u2026\u2014\u2013"))
+# Wide glyphs that came out cramped when squeezed (TREE-1619): the bowl of Q
+# got narrower than O and its tail long, and @ % & small. Go Mono draws them
+# for this cell, so take them with Go Mono's own spacing, unsqueezed.
+MONO_AS_IS = set(map(ord, "Q@%&"))
 
 # condenseExtend keeps only the vertical stems it finds; it squeezes
 # diagonals and curves like counters, so these glyphs came out up to half as
@@ -20,10 +24,10 @@ FROM_MONO = set(map(ord, "iljI10")) | set(map(ord, "\u2190\u2191\u2192\u2193\u21
 # again in proportion to how much they were squeezed. Regular m keeps its
 # stems, and @ % ¼ ¾ go too heavy, so they are not on the lists.
 LIGHT = {
-    "Regular": set(map(ord, "WŴwŵMQ&ŒœÆæǼǽØǾYÝŶŸ"
+    "Regular": set(map(ord, "WŴwŵMŒœÆæǼǽØǾYÝŶŸ"
                             "ΜΦΨΩωώΌΎΏπ"
                             "ЉљЊњЂЋМШЩщФф")),
-    "Bold": set(map(ord, "WŴwŵMmQ&ŒœÆæǼǽØǾYÝŶŸKĶVXOÒÓÔÕÖŌŎŐǑGĜĞĠĢÐĐďĲ"
+    "Bold": set(map(ord, "WŴwŵMmŒœÆæǼǽØǾYÝŶŸKĶVXOÒÓÔÕÖŌŎŐǑGĜĞĠĢÐĐďĲ"
                          "ΜΦΨΩωώΌΎΏπΘΟΔΚΧχψσφ"
                          "ЉљЊњЂЋМмШшЩщФфОДыъЎУХЮ")),
 }
@@ -67,6 +71,22 @@ for g in list(f.glyphs()):
         f.selection.select(u)
         f.paste()
         g = f[u]
+    if u in MONO_AS_IS and u in mono:
+        mono.selection.select(u)
+        mono.copy()
+        f.selection.select(u)
+        f.paste()
+        g = f[u]
+        g.width = TARGET
+        # Go Mono Bold's % is 2 units wider than the cell; fit it, nothing more.
+        xmin, ymin, xmax, ymax = g.boundingBox()
+        if xmin < 0 or xmax > TARGET:
+            g.transform(psMat.scale(min(1, TARGET / (xmax - xmin)), 1))
+            xmin, ymin, xmax, ymax = g.boundingBox()
+            g.transform(psMat.translate((TARGET - (xmax - xmin)) / 2 - xmin, 0))
+            g.round()
+            g.width = TARGET
+        continue
     if g.width == 0:             # combining marks keep zero width
         continue
     xmin, ymin, xmax, ymax = g.boundingBox()
@@ -94,6 +114,12 @@ for g in list(f.glyphs()):
     # Centre in the cell.
     g.transform(psMat.translate((TARGET - bw) / 2 - xmin, 0))
     g.width = TARGET
+
+# Go's asterisk sits high, like a footnote mark; in code it is an operator
+# (a*b, *p), so centre it on the middle of + as code fonts do (TREE-1619).
+_, py0, _, py1 = f["plus"].boundingBox()
+_, ay0, _, ay1 = f["asterisk"].boundingBox()
+f["asterisk"].transform(psMat.translate(0, round((py0 + py1) / 2 - (ay0 + ay1) / 2)))
 
 fam = "Go Sans Mono"
 f.familyname = fam
